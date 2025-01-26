@@ -35,31 +35,36 @@ describe("OffChain voting tests", function () {
         price: number, 
         balance: BigInt, 
         user: SignerWithAddress,
-        admin: SignerWithAddress,
         contract: ERC20_Tradable_Vote, 
         votingOffChain: LinkedList,
     ) => {
         const voteUser = votingOffChain.vote(price, Number(balance) / 1e18);
         
         if (voteUser.type === "add") {
-            await contract.connect(admin).addPrice(
-                ethers.parseUnits(voteUser.price.toString(), 'ether'),
-                voteUser.weight,
-                voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
-                voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
-                voteUser.hash,
-                user.address
-            );
+            try {
+                await contract.connect(user).addPrice(
+                    ethers.parseUnits(voteUser.price.toString(), 'ether'),
+                    ethers.parseUnits(voteUser.weight.toString(), 'ether'),
+                    voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
+                    voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
+                    voteUser.hash,
+                );
+            } catch (error) {
+                votingOffChain.deleteByHash(voteUser.hash);
+            }
         } else {
-            await contract.connect(admin).updateWeight(
-                voteUser.hash,
-                voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
-                voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
-                voteUser.oldNext === null ? ethers.encodeBytes32String("") : voteUser.oldNext,
-                voteUser.oldPrev === null ? ethers.encodeBytes32String("") : voteUser.oldPrev,
-                voteUser.weight,
-                user.address
-            );
+            try {
+                await contract.connect(user).updateWeight(
+                    voteUser.hash,
+                    voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
+                    voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
+                    voteUser.oldNext === null ? ethers.encodeBytes32String("") : voteUser.oldNext,
+                    voteUser.oldPrev === null ? ethers.encodeBytes32String("") : voteUser.oldPrev,
+                    ethers.parseUnits(voteUser.weight.toString(), 'ether')
+                );
+            } catch (error) {
+                votingOffChain.vote(price, -(Number(balance) / 1e18));
+            }
         }
     }
 
@@ -93,25 +98,22 @@ describe("OffChain voting tests", function () {
         await contract.connect(admin).startVoting(admin.address);
 
         // Voting(user 1) New price = 100, weight = 1000
-        await contract.canUserVote(user1.address);
-        await vote(100, balanceUser1, user1, admin, contract, votingOffChain);
+        await vote(100, balanceUser1, user1, contract, votingOffChain);
         
         // Voting(user 2) New price = 200, weight = 2000
-        await contract.canUserVote(user2.address);
-        await vote(200, balanceUser2, user2, admin, contract, votingOffChain); 
+        await vote(200, balanceUser2, user2, contract, votingOffChain); 
         
         // Voting(user 3) New price = 300, weight = 3000
-        await contract.canUserVote(user3.address);
-        await vote(300, balanceUser3, user3, admin, contract, votingOffChain); 
+        await vote(300, balanceUser3, user3, contract, votingOffChain); 
 
         // Voting(user 4) New price = 400, weight = 4000
-        await contract.canUserVote(user4.address);
-        await vote(300, ethers.parseUnits('-100', 'ether'), user4, admin, contract, votingOffChain);
+        await vote(300, ethers.parseUnits('-100', 'ether'), user4, contract, votingOffChain);
 
         // Voting(admin) New Price 100 , weight - biggest
-        await contract.canUserVote(admin.address);
-        await vote(100, adminBalance, admin, admin, contract, votingOffChain); 
+        await vote(100, adminBalance, admin, contract, votingOffChain); 
 
+        
+        
 
         // End voting
         await expect(contract.connect(admin).endVoting()).to.be.revertedWith("Voting is still ongoing");

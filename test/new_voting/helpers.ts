@@ -111,19 +111,19 @@ export class LinkedList {
         return this.head?.price;
     }
 
-    display(): { price: number; weight: number; prev: number | null; next: number | null }[] {
+    display(): { price: number; weight: number; hash: string; prev: number | null; next: number | null }[] {
         let current = this.head;
-        const nodes: { price: number; weight: number; prev: number | null; next: number | null }[] = [];
+        const nodes: { price: number; weight: number; hash: string; prev: number | null; next: number | null }[] = [];
         while (current) {
             nodes.push({
                 price: current.price,
                 weight: current.weight,
+                hash: current.hash,
                 prev: current.prev ? current.prev.price : null,
                 next: current.next ? current.next.price : null,
             });
             current = current.next;
         }
-        console.log(nodes);
         return nodes;
     }
     clear(): void {
@@ -135,6 +135,29 @@ export class LinkedList {
             current = next;
         }
         this.head = null;
+    }
+
+    deleteByHash(hash: string): boolean {
+        let current = this.head;
+    
+        while (current) {
+            if (current.hash === hash) {
+                if (current === this.head) {
+                    this.head = current.next;
+                    if (this.head) this.head.prev = null;
+                } else {
+                    if (current.prev) current.prev.next = current.next;
+                    if (current.next) current.next.prev = current.prev;
+                }
+                current.next = null;
+                current.prev = null;
+                return true;
+            }
+    
+            current = current.next;
+        }
+    
+        return false;
     }
     
 }
