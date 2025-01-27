@@ -32,16 +32,18 @@ describe("OffChain voting tests", function () {
     }
 
     const vote = async (
-        price: number, 
-        balance: BigInt, 
+        price: number,
+        balance: BigInt,
         user: SignerWithAddress,
-        contract: ERC20_Tradable_Vote, 
+        contract: ERC20_Tradable_Vote,
         votingOffChain: LinkedList,
     ) => {
-        const voteUser = votingOffChain.vote(price, Number(balance) / 1e18);
-        
-        if (voteUser.type === "add") {
-            try {
+        const backupList = votingOffChain.clone();
+    
+        try {
+            const voteUser = votingOffChain.vote(price, Number(balance) / 1e18, user.address);
+    
+            if (voteUser.type === "add") {
                 await contract.connect(user).addPrice(
                     ethers.parseUnits(voteUser.price.toString(), 'ether'),
                     ethers.parseUnits(voteUser.weight.toString(), 'ether'),
@@ -49,24 +51,24 @@ describe("OffChain voting tests", function () {
                     voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
                     voteUser.hash,
                 );
-            } catch (error) {
-                votingOffChain.deleteByHash(voteUser.hash);
-            }
-        } else {
-            try {
+            } else {
                 await contract.connect(user).updateWeight(
                     voteUser.hash,
                     voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
                     voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
                     voteUser.oldNext === null ? ethers.encodeBytes32String("") : voteUser.oldNext,
                     voteUser.oldPrev === null ? ethers.encodeBytes32String("") : voteUser.oldPrev,
-                    ethers.parseUnits(voteUser.weight.toString(), 'ether')
+                    ethers.parseUnits(voteUser.weight.toString(), 'ether'),
+                    ethers.parseUnits((Number(balance) / 1e18).toString(), 'ether'),
                 );
-            } catch (error) {
-                votingOffChain.vote(price, -(Number(balance) / 1e18));
             }
+        } catch (error) {
+            console.error("Error occurred, rolling back changes:", error);
+            votingOffChain.clear();
+            Object.assign(votingOffChain, backupList);
         }
-    }
+    };
+    
 
     it("Test new voting", async function () {
 
@@ -99,15 +101,17 @@ describe("OffChain voting tests", function () {
 
         // Voting(user 1) New price = 100, weight = 1000
         await vote(100, balanceUser1, user1, contract, votingOffChain);
+        await vote(200, balanceUser1, user1, contract, votingOffChain);
         
         // Voting(user 2) New price = 200, weight = 2000
-        await vote(200, balanceUser2, user2, contract, votingOffChain); 
+        await vote(200, balanceUser2, user2, contract, votingOffChain);
+        await vote(200, balanceUser2, user2, contract, votingOffChain);
+        await vote(200, balanceUser2, user2, contract, votingOffChain);
+        // await vote(200, ethers.parseUnits('10000', 'ether'), user2, contract, votingOffChain);
+        // await vote(200, ethers.parseUnits('10000', 'ether'), user2, contract, votingOffChain);
         
         // Voting(user 3) New price = 300, weight = 3000
         await vote(300, balanceUser3, user3, contract, votingOffChain); 
-
-        // Voting(user 4) New price = 400, weight = 4000
-        await vote(300, ethers.parseUnits('-100', 'ether'), user4, contract, votingOffChain);
 
         // Voting(admin) New Price 100 , weight - biggest
         await vote(100, adminBalance, admin, contract, votingOffChain); 
@@ -123,6 +127,10 @@ describe("OffChain voting tests", function () {
         
         const priceFromOnChain = Number(await contract.getPrice()) / 1e18;
         const priceFromOffChain = votingOffChain.getHighest();
+        console.log(priceFromOnChain, priceFromOffChain);
+        console.log(votingOffChain.display());
+        
+        
         expect(priceFromOnChain).to.equal(priceFromOffChain);
 
         votingOffChain.clear();

@@ -34,22 +34,34 @@ class Node implements NodeInterface {
     hash: string;
     next: Node | null = null;
     prev: Node | null = null;
+    adressToWeight: Map<string, number> = new Map();
 
-    constructor(price: number, weight: number) {
+    constructor(price: number, weight: number, address: string) {
         this.price = price;
         this.weight = weight;
         this.hash = solidityPackedKeccak256(["int256", "int256", "uint256"], [price, weight, new Date().getTime() ]);
+        this.adressToWeight.set(address, weight);
     }
 }
 
 export class LinkedList {
     head: Node | null = null;
 
-    vote(price: number, additionalWeight: number): UpdateResult | AddResult {
+    vote(price: number, additionalWeight: number, address: string): UpdateResult | AddResult {
         let current = this.head;
         while (current) {
             if (current.price === price) {
-                current.weight += additionalWeight;
+                const userAddressWeight = current.adressToWeight.get(address);
+                if (!userAddressWeight) {
+                    current.weight += additionalWeight;
+                    current.adressToWeight.set(address, additionalWeight);    
+                } else {
+                    current.weight -= userAddressWeight;
+                    current.weight += additionalWeight;
+                    current.adressToWeight.set(address, additionalWeight);
+                }
+                
+                
 
                 const curPrev = current.prev;
                 const curNext = current.next;
@@ -74,7 +86,7 @@ export class LinkedList {
             current = current.next;
         }
 
-        const newNode = new Node(price, additionalWeight);
+        const newNode = new Node(price, additionalWeight, address);
         this.addSorted(newNode);
 
         return {
@@ -111,9 +123,9 @@ export class LinkedList {
         return this.head?.price;
     }
 
-    display(): { price: number; weight: number; hash: string; prev: number | null; next: number | null }[] {
+    display(): { price: number; weight: number; hash: string; prev: number | null; next: number | null, addressToWeight: Map<string, number> }[] {
         let current = this.head;
-        const nodes: { price: number; weight: number; hash: string; prev: number | null; next: number | null }[] = [];
+        const nodes: { price: number; weight: number; hash: string; prev: number | null; next: number | null, addressToWeight: Map<string, number> }[] = [];
         while (current) {
             nodes.push({
                 price: current.price,
@@ -121,6 +133,7 @@ export class LinkedList {
                 hash: current.hash,
                 prev: current.prev ? current.prev.price : null,
                 next: current.next ? current.next.price : null,
+                addressToWeight: current.adressToWeight
             });
             current = current.next;
         }
@@ -137,27 +150,37 @@ export class LinkedList {
         this.head = null;
     }
 
-    deleteByHash(hash: string): boolean {
-        let current = this.head;
+    clone(): LinkedList {
+        const newLinkedList = new LinkedList();
+    
+        if (!this.head) {
+            return newLinkedList;
+        }
+    
+        let current: Node | null = this.head;
+        const nodeMap = new Map<Node, Node>();
     
         while (current) {
-            if (current.hash === hash) {
-                if (current === this.head) {
-                    this.head = current.next;
-                    if (this.head) this.head.prev = null;
-                } else {
-                    if (current.prev) current.prev.next = current.next;
-                    if (current.next) current.next.prev = current.prev;
-                }
-                current.next = null;
-                current.prev = null;
-                return true;
-            }
-    
+            const newNode = new Node(current.price, current.weight, "");
+            newNode.hash = current.hash;
+            newNode.adressToWeight = new Map(current.adressToWeight);
+            nodeMap.set(current, newNode);
             current = current.next;
         }
     
-        return false;
+        current = this.head;
+        while (current) {
+            const clonedNode = nodeMap.get(current)!;
+            clonedNode.next = current.next ? nodeMap.get(current.next) || null : null;
+            clonedNode.prev = current.prev ? nodeMap.get(current.prev) || null : null;
+            if (!clonedNode.prev) {
+                newLinkedList.head = clonedNode;
+            }
+            current = current.next;
+        }
+    
+        return newLinkedList;
     }
+    
     
 }

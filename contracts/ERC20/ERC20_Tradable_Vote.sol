@@ -81,9 +81,9 @@ contract ERC20_Tradable_Vote is ERC20_Tradable {
         return true;
     }
 
-    function updateWeight(bytes32 key, bytes32 newNext, bytes32 newPrev, bytes32 oldNext, bytes32 oldPrev, uint256 weight) external returns (bool) {
+    function updateWeight(bytes32 key, bytes32 newNext, bytes32 newPrev, bytes32 oldNext, bytes32 oldPrev, uint256 weight, uint256 userBalance) external returns (bool) {
         require(block.timestamp < _votingStartTime + _timeToVote, "Voting has ended");
-        require(_balances[msg.sender] >= _minTokenToVote, "Insufficient tokens to vote");
+        require(userBalance == balanceOf(msg.sender), "Weight must be equal to your balance");
         if(newPrev != bytes32(0)) {
             require(weight <= voting[_votingId][newPrev].weight, "Weight must be greater than the previous element");
         }
