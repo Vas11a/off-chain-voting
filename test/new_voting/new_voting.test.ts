@@ -56,10 +56,7 @@ describe("OffChain voting tests", function () {
                     voteUser.hash,
                     voteUser.next === null ? ethers.encodeBytes32String("") : voteUser.next,
                     voteUser.prev === null ? ethers.encodeBytes32String("") : voteUser.prev,
-                    voteUser.oldNext === null ? ethers.encodeBytes32String("") : voteUser.oldNext,
-                    voteUser.oldPrev === null ? ethers.encodeBytes32String("") : voteUser.oldPrev,
                     ethers.parseUnits(voteUser.weight.toString(), 'ether'),
-                    ethers.parseUnits((Number(balance) / 1e18).toString(), 'ether'),
                 );
             }
         } catch (error) {
@@ -101,12 +98,10 @@ describe("OffChain voting tests", function () {
 
         // Voting(user 1) New price = 100, weight = 1000
         await vote(100, balanceUser1, user1, contract, votingOffChain);
-        await vote(200, balanceUser1, user1, contract, votingOffChain);
         
         // Voting(user 2) New price = 200, weight = 2000
         await vote(200, balanceUser2, user2, contract, votingOffChain);
-        await vote(200, balanceUser2, user2, contract, votingOffChain);
-        await vote(200, balanceUser2, user2, contract, votingOffChain);
+        
         // await vote(200, ethers.parseUnits('10000', 'ether'), user2, contract, votingOffChain);
         // await vote(200, ethers.parseUnits('10000', 'ether'), user2, contract, votingOffChain);
         
